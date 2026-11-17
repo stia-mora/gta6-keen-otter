@@ -31,22 +31,27 @@ and police cars and foot officers answer the wanted level.
 - **Driving** — arcade car physics, steering, handbrake slides, skid
   marks, damage, smoke and explosions; steal any civilian car (E).
 - **Wanted system** — 0 to 5 stars. Stealing, hitting pedestrians,
-  assault and gunfire raise the heat; police cars chase and ram, officers
-  chase on foot and bust you, and at four stars they shoot. Lay low to
-  cool off, or pay $200 at a Spray & Go for fresh paint and a clean record.
+  assault and gunfire raise the heat; black-and-white police cars with
+  flashing light bars chase and ram, officers chase on foot and bust you,
+  and at four stars they shoot. Lay low to cool off, or pay $200 at a
+  Spray & Go for fresh paint and a clean record.
 - **Missions and story** — six story jobs with briefings, map markers,
   timers and payouts, plus taxi fares and hidden stashes.
 - **Combat** — punch on foot, pick up a pistol and shoot with the mouse;
   cops fight back.
 - **HUD and minimap** — health, armor, cash, wanted stars, the clock,
-  the objective with its distance, speed, and a live minimap showing
-  roads, police blips, the player and the objective.
+  the objective with its distance, speed, a live minimap showing
+  roads, police blips, the player and the objective, and the radio
+  station with its current track.
+- **Radio** — three synthesized stations on the dial (SOLANO FM 87.9
+  Sunset Drive, HEAT 102.4 Street Beats, BAY 94.1 Coastal Jazz), each
+  with its own tracks and groove. R switches station.
 - **Menus and save** — title screen, pause menu, mission briefings,
   wasted / busted screens, and a localStorage save that keeps money,
   story progress, stashes and position.
 - **Sound** — everything synthesized live with WebAudio: engine hum,
-  two-tone sirens, gunshots, crashes, pickups, mission jingles and a
-  looping bass groove. No audio files. M mutes.
+  two-tone sirens, gunshots, crashes, pickups, mission jingles and the
+  three radio stations. No audio files. M mutes.
 
 ## Controls
 
@@ -58,6 +63,7 @@ and police cars and foot officers answer the wanted level.
 | Space | Punch on foot, handbrake while driving |
 | Mouse + click | Aim and shoot (pistol) |
 | T | Take a taxi fare (in a car, near a stand) |
+| R | Switch radio station |
 | X | Spray & Go (in a car, near a purple S) |
 | Esc / P | Pause |
 | M | Mute |

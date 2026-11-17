@@ -5,6 +5,7 @@
 
 import { clamp, money, timeOfDay } from './utils.js';
 import { ROAD_W } from './city.js';
+import { currentStation, currentTrack } from './radio.js';
 
 /** Draw the in-game HUD: bars, stars, objective, speed, minimap. */
 export function drawHUD(ctx, game) {
@@ -55,7 +56,7 @@ export function drawHUD(ctx, game) {
   }
   ctx.fillStyle = '#aaa';
   ctx.font = '12px sans-serif';
-  ctx.fillText('[E] enter car  [Space] punch  [M] mute', 24, H - 18);
+  ctx.fillText('[E] enter car  [Space] punch  [R] radio  [M] mute', 24, H - 18);
 
   // Speed when driving.
   if (player.car) {
@@ -67,6 +68,17 @@ export function drawHUD(ctx, game) {
     ctx.textAlign = 'right';
     ctx.fillText(kmh + ' km/h', W - 26, H - 26);
   }
+
+  // Radio: station and track, bottom-centre.
+  const station = currentStation(game.radio);
+  const radioText = `♪ ${station.name}  ${station.tag} — “${currentTrack(game.radio)}”  [R]`;
+  ctx.font = 'bold 13px sans-serif';
+  const rw = ctx.measureText(radioText).width + 24;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(W / 2 - rw / 2, H - 44, rw, 30);
+  ctx.fillStyle = '#ffd94a';
+  ctx.textAlign = 'center';
+  ctx.fillText(radioText, W / 2, H - 24);
 
   // Objective line, top-centre.
   const obj = game.objectiveText;
@@ -219,7 +231,7 @@ export function drawMenu(ctx, game) {
     'Six jobs. One city. No rules but hers.',
     '',
     'WASD move / drive   •   E enter & steal cars   •   Space punch / handbrake',
-    'Mouse aim + click to shoot   •   T take a taxi fare   •   Esc pause   •   M mute',
+    'Mouse aim + click to shoot   •   T take a taxi fare   •   R radio stations   •   Esc pause   •   M mute',
     '',
     game.hasSave ? 'Press ENTER to continue your saved game, or click NEW GAME' : 'Press ENTER or click to start',
   ], '#ff5a3c');

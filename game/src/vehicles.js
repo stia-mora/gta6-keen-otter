@@ -4,7 +4,7 @@
 // or driven by the police.
 
 import { clamp, choice, dist, rand, turnToward } from './utils.js';
-import { collideCircle, nodeNeighbours, randomNode } from './city.js';
+import { collideCircle, nodeNeighbours, randomNode, nearestRoadPoint, onRoad } from './city.js';
 
 export const CAR_COLORS = [
   '#c0392b', '#2980b9', '#f39c12', '#27ae60', '#8e44ad', '#e67e22',
@@ -97,8 +97,23 @@ export function trafficAI(car, city, cars, dt) {
   const desired = Math.atan2(t.y - car.y, t.x - car.x);
   const turn = turnToward(car.angle, desired, 2.2 * dt);
   const steer = clamp((turn - car.angle) / 0.1, -1, 1);
-  const throttle = blocked ? 0 : 0.75;
+  // Ease off near the node: a slower car turns tighter and stays on the
+  // road instead of swinging wide through the block corner (and the park).
+  const throttle = blocked ? 0 : d < 160 ? 0.35 : 0.75;
   driveCarPhysics(car, throttle, steer, dt, false);
+  // Guardrail: a traffic car that drifts off the road is pulled back to
+  // the nearest road centreline, so wide turns never cut a park corner.
+  if (!onRoad(city, car.x, car.y)) {
+    const road = nearestRoadPoint(city, car.x, car.y);
+    const dx = road.x - car.x;
+    const dy = road.y - car.y;
+    const rd = Math.hypot(dx, dy);
+    if (rd > 1) {
+      const pull = Math.min(rd, 140 * dt);
+      car.x += (dx / rd) * pull;
+      car.y += (dy / rd) * pull;
+    }
+  }
   if (Math.abs(car.speed) < 8 && d > 40) {
     car.stuck += dt;
     if (car.stuck > 4) {

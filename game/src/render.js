@@ -62,11 +62,14 @@ function drawRoads(ctx, city, cam) {
 
 function drawBuildings(ctx, city) {
   for (const b of city.buildings) {
-    // Shadow to the south-east: the sun is high and warm.
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.fillRect(b.x + 7, b.y + 9, b.w, b.h);
+    // Long shadow to the south-east: the afternoon sun is low and warm.
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(b.x + 12, b.y + 15, b.w, b.h);
     ctx.fillStyle = b.color;
     ctx.fillRect(b.x, b.y, b.w, b.h);
+    // Sunlit top edge.
+    ctx.fillStyle = 'rgba(255,240,200,0.35)';
+    ctx.fillRect(b.x, b.y, b.w, 4);
     // Roof inset and windows.
     ctx.fillStyle = b.roof;
     ctx.fillRect(b.x + 5, b.y + 5, b.w - 10, b.h - 10);
@@ -80,10 +83,48 @@ function drawBuildings(ctx, city) {
         }
       }
     }
-    // Rooftop box for taller buildings.
-    if (b.height >= 3) {
-      ctx.fillStyle = 'rgba(0,0,0,0.2)';
-      ctx.fillRect(b.x + b.w / 2 - 14, b.y + b.h / 2 - 14, 28, 28);
+    // Rooftop clutter, keyed by the building's seed so it never moves.
+    const kind = hash2(b.seed, 99);
+    if (b.height >= 3 && kind < 0.35) {
+      // Water tower: legs and a tank.
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(b.x + b.w / 2 - 10, b.y + b.h / 2 - 6, 20, 16);
+      ctx.fillStyle = '#7a5a3a';
+      ctx.beginPath();
+      ctx.arc(b.x + b.w / 2, b.y + b.h / 2 - 8, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#5a4028';
+      ctx.fillRect(b.x + b.w / 2 - 12, b.y + b.h / 2 - 22, 24, 8);
+    } else if (kind < 0.6) {
+      // Air-conditioning boxes.
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(b.x + 14, b.y + 14, 18, 12);
+      ctx.fillRect(b.x + b.w - 32, b.y + b.h - 26, 18, 12);
+      ctx.fillStyle = '#9aa0a6';
+      ctx.fillRect(b.x + 12, b.y + 12, 18, 12);
+      ctx.fillRect(b.x + b.w - 34, b.y + b.h - 28, 18, 12);
+    } else if (kind < 0.8) {
+      // Rooftop garden: a green patch with two shrubs.
+      ctx.fillStyle = '#4a8a3f';
+      ctx.fillRect(b.x + b.w / 2 - 22, b.y + b.h / 2 - 12, 44, 24);
+      ctx.fillStyle = '#5da244';
+      ctx.beginPath();
+      ctx.arc(b.x + b.w / 2 - 10, b.y + b.h / 2, 7, 0, Math.PI * 2);
+      ctx.arc(b.x + b.w / 2 + 12, b.y + b.h / 2 + 2, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // The tallest towers get an antenna with a red tip.
+    if (b.height >= 5) {
+      ctx.strokeStyle = 'rgba(30,30,40,0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(b.x + b.w / 2, b.y + 6);
+      ctx.lineTo(b.x + b.w / 2, b.y - 22);
+      ctx.stroke();
+      ctx.fillStyle = '#ff3b30';
+      ctx.beginPath();
+      ctx.arc(b.x + b.w / 2, b.y - 24, 3, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 }
@@ -95,30 +136,63 @@ function drawCar(ctx, car, time) {
   // Shadow.
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.fillRect(-21, -11 + 4, 44, 24);
-  // Body.
-  ctx.fillStyle = car.color;
-  roundRect(ctx, -22, -12, 44, 24, 7);
-  ctx.fill();
-  // Roof and windshield.
-  ctx.fillStyle = car.kind === 'police' ? '#0e0e1a' : 'rgba(20,30,45,0.85)';
-  roundRect(ctx, -6, -10, 16, 20, 4);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(160,210,235,0.9)';
-  ctx.fillRect(9, -10, 4, 20);
-  ctx.fillRect(-18, -10, 3, 20);
-  // Police livery and light bar.
+  // Light-bar glow first, so it spills onto the street around the car.
   if (car.kind === 'police') {
-    ctx.fillStyle = '#e8e8e8';
-    ctx.fillRect(-22, -3, 44, 6);
+    const phase = Math.floor(time * 5) % 2 === 0;
+    const glowColor = phase ? 'rgba(255,42,42,0.5)' : 'rgba(42,107,255,0.5)';
+    const glow = ctx.createRadialGradient(0, -8, 2, 0, -8, 62);
+    glow.addColorStop(0, glowColor);
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, -8, 62, 0, Math.PI * 2);
+    ctx.fill();
+    // A wash of the flashing colour on the road under the car.
+    ctx.fillStyle = phase ? 'rgba(255,42,42,0.16)' : 'rgba(42,107,255,0.16)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 34, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Body: black-and-white for the police, the car's own colour otherwise.
+  if (car.kind === 'police') {
+    ctx.fillStyle = '#f0f0ea';
+    roundRect(ctx, -22, -12, 44, 24, 7);
+    ctx.fill();
+    // Black hood and trunk, white doors.
+    ctx.fillStyle = '#15151f';
+    ctx.fillRect(-22, -12, 11, 24);
+    ctx.fillRect(11, -12, 11, 24);
+    // Roof and windshield.
+    ctx.fillStyle = '#15151f';
+    roundRect(ctx, -6, -10, 16, 20, 4);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(160,210,235,0.9)';
+    ctx.fillRect(9, -10, 4, 20);
+    ctx.fillRect(-18, -10, 3, 20);
+    // POLICE down the white door band.
     ctx.fillStyle = '#111';
-    ctx.font = 'bold 8px sans-serif';
+    ctx.font = 'bold 7px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('PD', 0, 2);
-    const blink = Math.floor(time * 4) % 2 === 0;
+    ctx.fillText('POLICE', 0, 2);
+    // Light bar: red one side, blue the other, swapping every blink.
+    const blink = Math.floor(time * 5) % 2 === 0;
     ctx.fillStyle = blink ? '#ff2a2a' : '#2a6bff';
-    ctx.fillRect(-14, -13, 8, 4);
+    ctx.fillRect(-14, -15, 11, 6);
     ctx.fillStyle = blink ? '#2a6bff' : '#ff2a2a';
-    ctx.fillRect(6, -13, 8, 4);
+    ctx.fillRect(3, -15, 11, 6);
+    ctx.fillStyle = '#ddd';
+    ctx.fillRect(-3, -15, 6, 6);
+  } else {
+    ctx.fillStyle = car.color;
+    roundRect(ctx, -22, -12, 44, 24, 7);
+    ctx.fill();
+    // Roof and windshield.
+    ctx.fillStyle = 'rgba(20,30,45,0.85)';
+    roundRect(ctx, -6, -10, 16, 20, 4);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(160,210,235,0.9)';
+    ctx.fillRect(9, -10, 4, 20);
+    ctx.fillRect(-18, -10, 3, 20);
   }
   if (car.kind === 'taxi') {
     ctx.fillStyle = '#111';
@@ -228,10 +302,16 @@ export function renderWorld(ctx, game) {
   ctx.fillStyle = '#2f7fb8';
   ctx.fillRect(city.waterEast, 0, WORLD_W - city.waterEast, WORLD_H);
   ctx.fillRect(0, city.waterSouth, WORLD_W, WORLD_H - city.waterSouth);
-  // Water shimmer.
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  // Water shimmer: bright dashes that drift with the time, east bay and south sea.
+  ctx.fillStyle = 'rgba(255,255,255,0.14)';
+  const shimmer = game.time * 36;
   for (let y = 40; y < WORLD_H; y += 90) {
-    ctx.fillRect(city.waterEast + 20 + ((y * 7) % 120), y, 60, 3);
+    const x = city.waterEast + 20 + ((y * 7 + shimmer) % 140);
+    ctx.fillRect(x, y, 60, 3);
+  }
+  for (let x = 40; x < WORLD_W; x += 110) {
+    const y = city.waterSouth + 20 + ((x * 5 + shimmer * 0.7) % 90);
+    ctx.fillRect(x, y, 3, 46);
   }
   // Piers.
   for (const pier of city.piers) {
@@ -287,6 +367,35 @@ export function renderWorld(ctx, game) {
     } else if (prop.kind === 'hydrant') {
       ctx.fillStyle = '#c0392b';
       ctx.fillRect(prop.x - 3, prop.y - 4, 6, 8);
+    } else if (prop.kind === 'palm') {
+      // A beach palm: thin trunk, drooping fronds, long shadow.
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(prop.x + 5, prop.y + 6, 14 * prop.s, 8 * prop.s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#8a6a44';
+      ctx.lineWidth = 4 * prop.s;
+      ctx.beginPath();
+      ctx.moveTo(prop.x, prop.y + 10 * prop.s);
+      ctx.lineTo(prop.x, prop.y - 12 * prop.s);
+      ctx.stroke();
+      ctx.fillStyle = '#2f7d33';
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i - 2) * 0.55;
+        ctx.beginPath();
+        ctx.ellipse(prop.x + Math.cos(a) * 12 * prop.s, prop.y - 12 * prop.s + Math.sin(a) * 8 * prop.s, 11 * prop.s, 4 * prop.s, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (prop.kind === 'billboard') {
+      // A bright panel on two legs, facing the street.
+      ctx.fillStyle = '#3a3a3a';
+      ctx.fillRect(prop.x - 14, prop.y - 4, 4, 22);
+      ctx.fillRect(prop.x + 10, prop.y - 4, 4, 22);
+      ctx.fillStyle = prop.color || '#e74c3c';
+      ctx.fillRect(prop.x - 18, prop.y - 26, 36, 22);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillRect(prop.x - 14, prop.y - 22, 28, 4);
+      ctx.fillRect(prop.x - 14, prop.y - 14, 18, 3);
     }
   }
 
@@ -344,13 +453,30 @@ export function renderWorld(ctx, game) {
     ctx.save();
     ctx.translate(cop.x, cop.y);
     ctx.rotate(cop.angle);
-    ctx.fillStyle = '#1a2a4a';
+    // A bright ring on the ground, so the officer pops off the dark road.
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.arc(0, 0, 13, 0, Math.PI * 2);
+    ctx.stroke();
+    // Royal-blue uniform, far brighter than the asphalt.
+    ctx.fillStyle = '#2a5ad0';
+    ctx.beginPath();
+    ctx.arc(0, 0, 11, 0, Math.PI * 2);
     ctx.fill();
+    // Head with a white cap.
     ctx.fillStyle = '#f1c27d';
     ctx.beginPath();
     ctx.arc(3, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f2f2f0';
+    ctx.beginPath();
+    ctx.arc(3, 0, 5, Math.PI, Math.PI * 2);
+    ctx.fill();
+    // Gold badge on the chest.
+    ctx.fillStyle = '#ffd94a';
+    ctx.beginPath();
+    ctx.arc(-4, 5, 2.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }

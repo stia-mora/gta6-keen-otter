@@ -3,6 +3,7 @@
 // a small looping bass-and-hats groove are all oscillators and noise.
 
 import { clamp } from './utils.js';
+import { RADIO_STATIONS } from './radio.js';
 
 /** Build one shared noise buffer for bursts (gunshots, crashes, skids). */
 function makeNoiseBuffer(ctx) {
@@ -28,6 +29,8 @@ export class SoundEngine {
     this.sirenTimer = 0;
     this.musicTimer = null;
     this.musicStep = 0;
+    this.musicClock = 0;
+    this.radio = null;
     this.started = false;
   }
 
@@ -193,17 +196,28 @@ export class SoundEngine {
     this.sirenGain.gain.setTargetAtTime(this.muted ? 0 : 0.045, this.ctx.currentTime, 0.1);
   }
 
-  // ---- music: a quiet 8-step bass groove --------------------------------
+  // ---- music: the radio. One tick reads the station on the dial and
+  // plays its 16-step pattern: bass, chords and hats, all oscillators.
+  // No station set yet (before the game starts): HEAT 102.4 plays.
 
   startMusic() {
-    // Bass notes of a minor-key loop, one step every 190 ms.
-    const bass = [55, 0, 55, 65.4, 55, 0, 49, 58.3];
     this.musicTimer = setInterval(() => {
       if (!this.ctx || this.muted || !this.musicOn) return;
-      const step = this.musicStep++ % 8;
-      const f = bass[step];
-      if (f) this.blip(f, 0.16, 'triangle', 0.07);
-      if (step % 2 === 0) this.noiseBurst(0.03, 0.03, 6000, 'highpass');
-    }, 190);
+      const station = this.radio ? RADIO_STATIONS[this.radio.station] : RADIO_STATIONS[1];
+      this.musicClock += 60;
+      if (this.musicClock < station.stepMs) return;
+      this.musicClock = 0;
+      const step = this.musicStep++ % 16;
+      const note = station.steps[step];
+      if (note) this.blip(note[0], 0.16, note[1], note[2]);
+      if (station.hat && step % 2 === 0) this.noiseBurst(0.03, 0.03, 6000, 'highpass');
+    }, 60);
+  }
+
+  /** Point the music scheduler at the game's radio (R switches it). */
+  setRadio(radio) {
+    this.radio = radio;
+    this.musicStep = 0;
+    this.musicClock = 0;
   }
 }

@@ -32,13 +32,12 @@ if (existsSync(join(here, 'screenshots'))) {
 // game/ or 48 MiB of game files in all, or a game/ path over 1000 bytes.
 // game/ counts beside /output's own 1000-entry cap, its screenshots/ and
 // dossier.json, so the game is kept well inside those limits.
-writeFileSync(
-  join(out, 'dossier.json'),
-  buildDossier(out, {
-    text_max_bytes: 163840,
-    screenshots: { max: 4, max_bytes: 262144 },
-    game_max_files: 993,
-    game_max_bytes: 50331648,
-    game_path_max_bytes: 1000,
-  }),
-);
+const DOSSIER_OPTIONS = {
+  text_max_bytes: 163840,
+  screenshots: { max: 4, max_bytes: 262144 },
+  game_max_files: 993,
+  game_max_bytes: 50331648,
+  game_path_max_bytes: 1000,
+};
+
+writeFileSync(join(out, 'dossier.json'), buildDossier(out, DOSSIER_OPTIONS));

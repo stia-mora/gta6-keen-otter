@@ -14,6 +14,7 @@ import { makePed, spawnPeds, updatePeds, scarePeds } from './pedestrians.js';
 import { makeWanted, addHeat, updateWanted, ensurePolice, policeCarAI, updateCops, tryPaynspray } from './police.js';
 import { makeMissionState, updateMissions, objectiveText, objectiveMarker, startMission } from './missions.js';
 import { makeEffects, updateEffects, burst, smoke, skid, floatText, shake, shakeOffset } from './effects.js';
+import { makeRadio, nextStation, currentStation, updateRadio } from './radio.js';
 import { writeSave, readSave, hasSave, applySave } from './save.js';
 import { clamp, dist, rand, money } from './utils.js';
 
@@ -30,6 +31,7 @@ class Game {
     this.effects = makeEffects();
     this.player = makePlayer(this.city.places.safehouse.x + 40, this.city.places.safehouse.y + 40);
     this.wanted = makeWanted();
+    this.radio = makeRadio();
     this.missions = makeMissionState();
     this.cars = [];
     this.policeCars = [];
@@ -77,10 +79,10 @@ class Game {
   /** Fresh world around the player: traffic, peds, parked cars. */
   populate() {
     const p = this.player;
-    this.cars = spawnTraffic(this.city, 22, p.x, p.y, 500);
+    this.cars = spawnTraffic(this.city, 30, p.x, p.y, 500);
     this.policeCars = [];
     this.cops = [];
-    this.peds = spawnPeds(this.city, 42, p.x, p.y, 350);
+    this.peds = spawnPeds(this.city, 56, p.x, p.y, 350);
     // Parked cars the player can steal, on the roads by the kerb.
     const parked = [
       [2665, 1225, 0], [1700, 1225, Math.PI / 2], [2180, 1700, Math.PI],
@@ -93,6 +95,7 @@ class Game {
   startNewGame() {
     this.player = makePlayer(this.city.places.safehouse.x + 40, this.city.places.safehouse.y + 40);
     this.wanted = makeWanted();
+    this.radio = makeRadio();
     this.missions = makeMissionState();
     this.bullets = [];
     this.toasts = [];
@@ -102,6 +105,7 @@ class Game {
     this.state = 'playing';
     this.showBriefing('Port Solano', 'Mara owes Silas Kane $40,000. Six jobs pay it down. First: steal a car and bring it to Kane’s Garage.');
     this.audio.ensure();
+    this.audio.setRadio(this.radio);
   }
 
   continueGame() {
@@ -179,6 +183,13 @@ class Game {
     this.clockHours = (this.clockHours + dt * 0.02) % 24;
     if (this.input.hit('Escape', 'KeyP')) { this.state = 'paused'; return; }
     if (this.input.hit('KeyM')) this.audio.setMuted(!this.audio.muted);
+    // R switches the radio station; tracks rotate on their own.
+    if (this.input.hit('KeyR')) {
+      const st = nextStation(this.radio);
+      this.audio.setRadio(this.radio);
+      this.toast(`♪ ${st.name} — ${st.tag}`, 'info');
+    }
+    updateRadio(this.radio, dt);
     if (this.input.mousePressed || this.input.hit('Space', 'KeyE', 'KeyT')) this.audio.ensure();
 
     this.updatePlayer(dt);
@@ -224,10 +235,10 @@ class Game {
     if (this.spawnTimer <= 0) {
       this.spawnTimer = 6;
       const traffic = this.cars.filter((c) => c.driver === 'traffic');
-      if (traffic.length < 18) {
+      if (traffic.length < 24) {
         this.cars.push(...spawnTraffic(this.city, 2, this.player.x, this.player.y, 600));
       }
-      if (this.peds.length < 36) {
+      if (this.peds.length < 48) {
         this.peds.push(...spawnPeds(this.city, 4, this.player.x, this.player.y, 400));
       }
     }
@@ -539,9 +550,20 @@ class Game {
       p.x = car.x;
       p.y = car.y;
       car.speed = 260;
+      // A busy downtown frame: cross-traffic and walkers on the sidewalks.
+      for (const [tx, ty, ta] of [[1440, 1200, 0], [1920, 1200, Math.PI], [1680, 960, Math.PI / 2], [1680, 1440, -Math.PI / 2]]) {
+        const t = makeCar(tx, ty, ta, 'civilian');
+        t.speed = 150;
+        this.cars.push(t);
+      }
+      for (let i = 0; i < 8; i++) {
+        this.peds.push(makePed(1500 + i * 90, 1140 + (i % 2) * 120));
+      }
       this.camera.x = clamp(car.x - this.camera.w / 2, 0, 3840 - this.camera.w);
       this.camera.y = clamp(car.y - this.camera.h / 2, 0, 2880 - this.camera.h);
     } else if (scene === 'chase') {
+      // The Last Job, mid-escape: four stars, cash in hand, four police
+      // cars closing in from every side.
       const car = makeCar(2160, 1680, -Math.PI / 2, 'civilian');
       car.driver = 'player';
       this.cars.push(car);
@@ -549,17 +571,30 @@ class Game {
       p.onFoot = false;
       p.x = car.x;
       p.y = car.y;
-      car.speed = 320;
-      this.wanted.heat = 55;
-      this.wanted.stars = 3;
+      car.speed = 340;
+      p.money = 2750;
+      this.wanted.heat = 76;
+      this.wanted.stars = 4;
       startMission(this, 5);
-      for (let i = 0; i < 3; i++) {
-        const cop = makeCar(car.x + (i - 1) * 260, car.y + 480, -Math.PI / 2, 'police');
+      // Jump to the escape step: "Four stars. Now run."
+      if (this.missions.active) this.missions.active.step = 2;
+      const copSpots = [
+        [car.x - 160, car.y + 280], [car.x + 40, car.y + 320],
+        [car.x + 200, car.y + 260], [car.x - 60, car.y - 300],
+      ];
+      for (const [cx, cy] of copSpots) {
+        const cop = makeCar(cx, cy, -Math.PI / 2, 'police');
         cop.driver = 'police';
         cop.siren = true;
-        cop.speed = 300;
+        cop.speed = 310;
         this.cars.push(cop);
         this.policeCars.push(cop);
+      }
+      // A little cross-traffic in the frame, for a busier street.
+      for (const [tx, ty, ta] of [[1920, 1680, 0], [2400, 1680, Math.PI]]) {
+        const t = makeCar(tx, ty, ta, 'civilian');
+        t.speed = 180;
+        this.cars.push(t);
       }
       this.camera.x = clamp(car.x - this.camera.w / 2, 0, 3840 - this.camera.w);
       this.camera.y = clamp(car.y - this.camera.h / 2, 0, 2880 - this.camera.h);
@@ -570,6 +605,18 @@ class Game {
       p.ammo = 24;
       this.gunPickup = null;
       startMission(this, 1);
+      // A harbour shootout: two officers closing in on the road, walkers
+      // scattering on the sidewalk. They start close enough to be in the
+      // frame and slow enough to arrive beside Mara, not on top of her.
+      for (const [cx, cy] of [[3120, 1000], [3120, 1600]]) {
+        this.cops.push({ x: cx, y: cy, angle: 0, speed: 130, grab: 0, gone: false });
+      }
+      for (let i = 0; i < 6; i++) {
+        const ped = makePed(3058 + (i % 3) * 6, 1400 + i * 28);
+        ped.state = 'flee';
+        ped.target = { x: ped.x - 320, y: ped.y + 200 };
+        this.peds.push(ped);
+      }
       this.camera.x = clamp(p.x - this.camera.w / 2, 0, 3840 - this.camera.w);
       this.camera.y = clamp(p.y - this.camera.h / 2, 0, 2880 - this.camera.h);
     }

@@ -124,10 +124,30 @@ export function buildCity() {
   for (const x of ROAD_X) {
     for (const y of ROAD_Y) {
       city.props.push({ x: x + 58, y: y + 58, kind: 'lamp', s: 1 });
-      if (hash2(x, y) < 0.5) {
+      if (hash2(x, y) < 0.75) {
         city.props.push({ x: x - 64 + rng() * 40, y: y + 60, kind: 'tree', s: 0.9 + rng() * 0.5 });
       }
+      if (hash2(x + 31, y + 17) < 0.3) {
+        city.props.push({ x: x + 64, y: y - 60, kind: 'tree', s: 0.8 + rng() * 0.5 });
+      }
     }
+  }
+  // Palm trees along the beachfront and the harbor walk.
+  for (let i = 0; i < 18; i++) {
+    city.props.push({
+      x: 300 + rng() * 3000, y: 2560 + rng() * 140, kind: 'palm', s: 0.9 + rng() * 0.5,
+    });
+  }
+  // Billboards on downtown blocks: bright panels on legs at block corners.
+  const billboardColors = ['#e74c3c', '#f1c40f', '#3498db', '#e67e22', '#9b59b6'];
+  for (let i = 0; i < 8; i++) {
+    const col = 2 + Math.floor(rng() * 3);
+    const row = 1 + Math.floor(rng() * 2);
+    city.props.push({
+      x: ROAD_X[col] + ROAD_W / 2 + 30 + rng() * 120,
+      y: ROAD_Y[row] + ROAD_W / 2 + 30 + rng() * 120,
+      kind: 'billboard', s: 1, color: billboardColors[i % billboardColors.length],
+    });
   }
   for (let i = 0; i < 40; i++) {
     city.props.push({
